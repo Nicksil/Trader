@@ -11,7 +11,11 @@ MARKET_TYPE_ENDPOINT = 'https://public-crest.eveonline.com/market/types/'
 
 def crest_request(endpoint):
     r = requests.get(endpoint)
-    return r.json()
+    r_json = r.json()
+
+    next_page = r_json.get('next')
+
+    return r_json, next_page
 
 
 def parse_crest_data(data):
@@ -85,7 +89,10 @@ def populate_solar_systems():
 def populate_market_types():
     print('Populating market types...\r\n')
 
-    crest_data = crest_request(MARKET_TYPE_ENDPOINT)
+    next_page = True
+    while next_page:
+        crest_data = crest_request(MARKET_TYPE_ENDPOINT)
+
     parsed = parse_crest_market_types(crest_data)
     objs = create_market_type_objects(parsed)
     save(objs, MarketType)

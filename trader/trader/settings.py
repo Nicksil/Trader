@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'debug_toolbar',
 
     'eve',
+    'explorer',
     'finder',
 ]
 
