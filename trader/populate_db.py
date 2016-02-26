@@ -4,101 +4,81 @@ from eve.models import SolarSystem
 
 import requests
 
-REGION_ENDPOINT = 'https://public-crest.eveonline.com/regions/'
-SOLAR_SYSTEM_ENDPOINT = 'https://public-crest.eveonline.com/solarsystems/'
-MARKET_TYPE_ENDPOINT = 'https://public-crest.eveonline.com/market/types/'
+MODEL_DATA = {
+    'region': {
+        'model': Region,
+        'endpoint': 'https://public-crest.eveonline.com/regions/',
+    },
+    'solar_system': {
+        'model': SolarSystem,
+        'endpoint': 'https://public-crest.eveonline.com/solarsystems/',
+    },
+    'market_type': {
+        'model': MarketType,
+        'endpoint': 'https://public-crest.eveonline.com/market/types/',
+    },
+}
 
 
-def crest_request(endpoint):
-    r = requests.get(endpoint)
-    r_json = r.json()
+class Populate(object):
 
-    next_page = r_json.get('next')
+    def __init__(self, model):
+        self.data = []
+        self.endpoint = MODEL_DATA[model]['endpoint']
+        self.model = MODEL_DATA[model]['model']
+        self.objects = []
 
-    return r_json, next_page
+    def call_crest(self):
+        r = requests.get(self.endpoint)
+        r.raise_for_status()
 
+        return r.json()
 
-def parse_crest_data(data):
-    items = []
+    def parse(self, data):
+        for i in data['items']:
+            if self.model is MarketType:
+                _ = {
+                    'id': i['type']['id'],
+                    'name': i['type']['name'],
+                    'market_group': i['marketGroup']['id'],
+                }
+            else:
+                _ = {
+                    'id': i['id'],
+                    'name': i['name'],
+                }
 
-    for d in data['items']:
-        _ = {
-            'id': d['id'],
-            'name': d['name'],
-        }
-        items.append(_)
+            self.data.append(_)
 
-    return items
+    def check_next(self, data):
+        """
+        Check if returned JSON data contains a 'next' attribute indicating
+        there's more than one page of results to collect
 
+        If next, return two-tuple (True, [href of next page])
 
-def parse_crest_market_types(data):
-    types = []
+        else, return two-tuple (False, None)
+        """
+        if 'next' in data.keys():
+            return True, data['next']['href']
 
-    for d in data['items']:
-        _ = {
-            'id': d['type']['id'],
-            'name': d['type']['name'],
-            'market_group': d['marketGroup']['id'],
-        }
+        return False, None
 
-        types.append(_)
+    def create_objects(self):
+        for d in self.data:
+            self.objects.append(self.model(**d))
 
-    return types
+    def save(self):
+        self.model.objects.bulk_create(self.objects)
 
+    def populate(self):
+        crest_data = self.call_crest()
+        has_next, self.endpoint = self.check_next(crest_data)
 
-def create_objects(data, model):
-    objs = []
+        self.parse(crest_data)
 
-    for d in data:
-        objs.append(model(id=d['id'], name=d['name']))
-
-    return objs
-
-
-def create_market_type_objects(data):
-    objs = []
-
-    for d in data:
-        objs.append(MarketType(id=d['id'], name=d['name'], market_group=d['market_group']))
-
-    return objs
-
-
-def save(data, model):
-    model.objects.bulk_create(data)
-
-
-def populate_regions():
-    print('Populating regions...\r\n')
-
-    crest_data = crest_request(REGION_ENDPOINT)
-    parsed = parse_crest_data(crest_data)
-    objs = create_objects(parsed, Region)
-    save(objs, Region)
-
-
-def populate_solar_systems():
-    print('Populating solar systems...\r\n')
-
-    crest_data = crest_request(SOLAR_SYSTEM_ENDPOINT)
-    parsed = parse_crest_data(crest_data)
-    objs = create_objects(parsed, SolarSystem)
-    save(objs, SolarSystem)
-
-
-def populate_market_types():
-    print('Populating market types...\r\n')
-
-    next_page = True
-    while next_page:
-        crest_data = crest_request(MARKET_TYPE_ENDPOINT)
-
-    parsed = parse_crest_market_types(crest_data)
-    objs = create_market_type_objects(parsed)
-    save(objs, MarketType)
-
-
-def populate_all():
-    populate_regions()
-    populate_solar_systems()
-    populate_market_types()
+        if has_next:
+            self.populate()
+        else:
+            self.create_objects()
+            self.save()
