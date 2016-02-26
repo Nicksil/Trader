@@ -5,6 +5,12 @@
         <title>Eve Trader</title>
     </head>
     <body>
+        <ul>
+            <li><a href="{% url 'site_index' %}">Home</a></li>
+            <li><a href="{% url 'explorer:market_type_list_view' %}">Explorer > Market Types</a></li>
+            <li><a href="{% url 'explorer:region_list_view' %}">Explorer > Regions</a></li>
+            <li><a href="{% url 'explorer:solar_system_list_view' %}">Explorer > Solar Systems</a></li>
+        </ul>
         {% block body %}{% endblock %}
     </body>
 </html>
