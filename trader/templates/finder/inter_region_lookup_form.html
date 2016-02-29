@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+    <h2>Inter-Region Lookup</h2>
+    <form action="{% url 'finder:inter_region_lookup_view' %}" method="POST">
+        {% csrf_token %}
+        {{ form }}
+        <input type="submit" value="Submit">
+    </form>
+    {% if crest_data %}
+        <p>{{ crest_data }}</p>
+    {% endif %}
+{% endblock %}
