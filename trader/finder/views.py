@@ -1,4 +1,7 @@
+from operator import itemgetter
+
 from django.core.urlresolvers import reverse_lazy
+from django.shortcuts import render
 from django.views.generic import FormView
 
 import requests
@@ -69,3 +72,59 @@ class InterRegionLookupView(FormView):
                 self.crest_data['origin'].append(_)
 
         return super(InterRegionLookupView, self).form_valid(form)
+
+
+def inter_region_lookup_view(request):
+    if request.method == 'POST':
+        type_name = request.POST['type_name']
+        origin_region = request.POST['origin_region']
+        dest_region = request.POST['dest_region']
+
+        type_obj = MarketType.objects.get(name__iexact=type_name)
+        origin_region_obj = Region.objects.get(name__iexact=origin_region)
+        dest_region_obj = Region.objects.get(name__iexact=dest_region)
+
+        type_id = type_obj.id
+        origin_region_id = origin_region_obj.id
+        dest_region_id = dest_region_obj.id
+
+        origin_url = CREST_ORDER_URL.format(region_id=origin_region_id, buy_or_sell='sell', type_id=type_id)
+
+        r = requests.get(origin_url)
+        r_json = r.json()
+
+        order_data = {
+            'orders': {
+                'origin': [],
+                'dest': [],
+            },
+        }
+
+        for item in r_json['items']:
+            _ = {
+                'name': item['type']['name'],
+                'price': item['price'],
+                'volume': item['volume'],
+                'location': item['location']['name'],
+            }
+            order_data['orders']['origin'].append(_)
+
+        dest_url = origin_url = CREST_ORDER_URL.format(region_id=dest_region_id, buy_or_sell='sell', type_id=type_id)
+
+        r = requests.get(dest_url)
+        r_json = r.json()
+
+        for item in r_json['items']:
+            _ = {
+                'name': item['type']['name'],
+                'price': item['price'],
+                'volume': item['volume'],
+                'location': item['location']['name'],
+            }
+            order_data['orders']['dest'].append(_)
+
+        order_data['orders']['origin'] = sorted(order_data['orders']['origin'], key=itemgetter('price'))
+        order_data['orders']['dest'] = sorted(order_data['orders']['dest'], key=itemgetter('price'))
+
+        return render(request, 'finder/inter_region_lookup_form.html', {'order_data': order_data})
+    return render(request, 'finder/inter_region_lookup_form.html')

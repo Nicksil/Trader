@@ -1,12 +1,59 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block body %}
     <h2>Inter-Region Lookup</h2>
     <form action="{% url 'finder:inter_region_lookup_view' %}" method="POST">
         {% csrf_token %}
-        {{ form }}
+        <label for="_type_name">Market Type:</label>
+        <input type="text" id="_type_name", name="type_name">
+        <br>
+        ----- OR -----
+        <br>
+        <label for="_market_group">Market Group:</label>
+        <input type="text" id="_market_group", name="market_group">
+        <br>
+        <label for="_origin_region">Origin Region:</label>
+        <input type="text" id="_origin_region" name="origin_region">
+        <br>
+        <label for="_dest_region">Destination Region:</label>
+        <input type="text" id="_dest_region" name="dest_region">
+        <br>
         <input type="submit" value="Submit">
     </form>
-    {% if crest_data %}
-        <p>{{ crest_data }}</p>
+    {% if order_data %}
+        <br>
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Volume</th>
+                <th>Location</th>
+            </tr>
+            {% for order in order_data.orders.origin %}
+                <tr>
+                    <td>{{ order.name }}</td>
+                    <td>{{ order.price|intcomma }}</td>
+                    <td>{{ order.volume|intcomma }}</td>
+                    <td>{{ order.location }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+        <br>
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Volume</th>
+                <th>Location</th>
+            </tr>
+            {% for order in order_data.orders.dest %}
+                <tr>
+                    <td>{{ order.name }}</td>
+                    <td>{{ order.price|intcomma }}</td>
+                    <td>{{ order.volume|intcomma }}</td>
+                    <td>{{ order.location }}</td>
+                </tr>
+            {% endfor %}
+        </table>
     {% endif %}
 {% endblock %}
