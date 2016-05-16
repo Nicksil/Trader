@@ -76,23 +76,6 @@ class InterRegionLookupView(FormView):
 
 def inter_region_lookup_view(request):
     if request.method == 'POST':
-        type_name = request.POST['type_name']
-        origin_region = request.POST['origin_region']
-        dest_region = request.POST['dest_region']
-
-        type_obj = MarketType.objects.get(name__iexact=type_name)
-        origin_region_obj = Region.objects.get(name__iexact=origin_region)
-        dest_region_obj = Region.objects.get(name__iexact=dest_region)
-
-        type_id = type_obj.id
-        origin_region_id = origin_region_obj.id
-        dest_region_id = dest_region_obj.id
-
-        origin_url = CREST_ORDER_URL.format(region_id=origin_region_id, buy_or_sell='sell', type_id=type_id)
-
-        r = requests.get(origin_url)
-        r_json = r.json()
-
         order_data = {
             'orders': {
                 'origin': [],
@@ -100,28 +83,54 @@ def inter_region_lookup_view(request):
             },
         }
 
-        for item in r_json['items']:
-            _ = {
-                'name': item['type']['name'],
-                'price': item['price'],
-                'volume': item['volume'],
-                'location': item['location']['name'],
-            }
-            order_data['orders']['origin'].append(_)
+        # type_name = request.POST['type_name']œ
+        market_group = request.POST['market_group']
+        origin_region = request.POST['origin_region']
+        dest_region = request.POST['dest_region']
 
-        dest_url = origin_url = CREST_ORDER_URL.format(region_id=dest_region_id, buy_or_sell='sell', type_id=type_id)
+        if len(market_group):
+            types = MarketType.objects.filter(market_group=int(market_group))
+            print(types)
+        # else:
+        #     type_obj = MarketType.objects.get(name__iexact=type_name)
+        origin_region_obj = Region.objects.get(name__iexact=origin_region)
+        dest_region_obj = Region.objects.get(name__iexact=dest_region)
 
-        r = requests.get(dest_url)
-        r_json = r.json()
+        # type_id = type_obj.id
+        origin_region_id = origin_region_obj.id
+        dest_region_id = dest_region_obj.id
 
-        for item in r_json['items']:
-            _ = {
-                'name': item['type']['name'],
-                'price': item['price'],
-                'volume': item['volume'],
-                'location': item['location']['name'],
-            }
-            order_data['orders']['dest'].append(_)
+        for t in types:
+            type_id = t.id
+            origin_url = CREST_ORDER_URL.format(region_id=origin_region_id, buy_or_sell='sell', type_id=type_id)
+
+            r = requests.get(origin_url)
+            r_json = r.json()
+
+            for item in r_json['items']:
+                _ = {
+                    'name': item['type']['name'],
+                    'price': item['price'],
+                    'volume': item['volume'],
+                    'location': item['location']['name'],
+                }
+                order_data['orders']['origin'].append(_)
+
+            for t in types:
+                type_id = t.id
+                dest_url = CREST_ORDER_URL.format(region_id=dest_region_id, buy_or_sell='sell', type_id=type_id)
+
+                r = requests.get(dest_url)
+                r_json = r.json()
+
+                for item in r_json['items']:
+                    _ = {
+                        'name': item['type']['name'],
+                        'price': item['price'],
+                        'volume': item['volume'],
+                        'location': item['location']['name'],
+                    }
+                    order_data['orders']['dest'].append(_)
 
         order_data['orders']['origin'] = sorted(order_data['orders']['origin'], key=itemgetter('price'))
         order_data['orders']['dest'] = sorted(order_data['orders']['dest'], key=itemgetter('price'))
